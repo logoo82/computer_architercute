@@ -149,26 +149,78 @@ def simulate_cycle():
             elif opcode == 7 and reg["I"] == 0:
                 # r = D7 and !I and T3
                 # Bi = IR[I]
-                # 
                 # IR의 0번째 비트가 0이 아닌지 검사
-                if reg["IR"] & 0x0001:
-                    cur_instruction_name = "HLT"
-                # IR의 11번째 비트가 0이 아닌지 검사
-                elif reg["IR"] & 0x0800:
-                    cur_instruction_name = "CLA"
-                else:
-                    cur_instruction_name = "register-reference"
                 
-                print(f'instruction : {cur_instruction_name}')
+                # 하위 12비트를 이용해 어떤 레지스터 명령어인지 확인
+                register_code = reg["IR"] & 0x0FFF
+                register_instruction = {
+                    0x800: "CLA",
+                    0x400: "CLE",
+                    0x200: "CMA",
+                    0x100: "CME",
+                    0x080: "CIR",
+                    0x040: "CIL",
+                    0x020: "INC",
+                    0x010: "SPA",
+                    0x008: "SNA",
+                    0x004: "SZA",
+                    0x002: "SZE",
+                    0x001: "HLT",
+                }
+                cur_instruction_name = register_instruction.get(register_code, "register-reference")
+                
                 
                 # rB11 : CLA
-                if reg["IR"] & 0x0800:
+                if register_code == 0x800:
                     print("rB11: AC <- 0")
                     reg["AC"] = 0
                     print(f'AC = {reg["AC"]:04X}')
-                
+                # rB7 : CIR
+                if register_code == 0x080:
+                    print("rB7: AC <- shr AC, AC(15) <- E, E <- AC(0)")
+                    lsb = reg["AC"] & 0x0001
+                # To-do CIR 구현하기
+                    
+                    
+                # rB6 : CIL
+                if register_code == 0x040:
+                    print("rB6: AC <- shl AC, AC(0) <- E, E <- AC(15)")
+                    msb = reg["AC"] & 0x8000
+                    reg["AC"] = ((reg["AC"] << 1) & 0xFFFF)
+                    reg["AC"] | reg["E"]
+                    reg["E"] = msb
+                    print(f'AC = {reg["AC"]:04X}, E = {reg["E"]}')
+                # rB5 : INC
+                if register_code == 0x020:
+                    print("rB5: AC <- AC + 1")
+                    reg["AC"] = (reg["AC"] + 1) & 0xFFFF
+                    print(f'AC = {reg["AC"]:04X}')
+                # rB4 : SPA
+                elif register_code == 0x010:
+                    print("rB4: if(AC(15) = 0) then (PC <- PC + 1)")
+                    if reg["AC"] & 0x8000 == 0:
+                        reg["PC"] = (reg["PC"] + 1) & 0xFFF
+                    print(f'PC = {reg["PC"]:03X}')
+                # rB3 : SNA
+                elif register_code == 0x008:
+                    print("rB3: if(AC(15) = 1) then (PC <- PC + 1)")
+                    if reg["AC"] & 0x8000 == 1:
+                        reg["PC"] = (reg["PC"] + 1) & 0xFFF
+                    print(f'PC = {reg["PC"]:03X}')
+                # rB2 : SZA
+                elif register_code == 0x004:
+                    print("rB2: if(AC = 0) then (PC <- PC + 1)")
+                    if reg["AC"] == 0:
+                        reg["PC"] = (reg["PC"] + 1) & 0xFFF
+                    print(f'PC = {reg["PC"]:03X}')
+                # rB1 : SZE
+                elif register_code == 0x002:
+                    print("rB1: if(E=0) then (PC <- PC + 1)")
+                    if reg["E"] == 0:
+                        reg["PC"] = (reg["PC"] + 1) & 0xFFF
+                    print(f'PC = {reg["PC"]:03X}')
                 # rB0 : HLT
-                if reg["IR"] & 0x0001:
+                elif register_code == 0x001:
                     print("rB0: S <- 0")
                     reg["S"] = 0
                     print(f'S = {reg["S"]}')
