@@ -1,14 +1,21 @@
-# decode된 opcode와 주소를 사람이 읽기 쉬운 instruction 문자열로 변환
+# decode된 opcode와 주소를 사람이 읽기 쉬운 메모리 참조 instruction 문자열로 변환
 def choise_instruction_name(opcode, reg_AR) -> str:
     # instuction name 정하기
-    if opcode == 1:
+    if opcode == 0:
+        cur_instruction_name = f'AND {reg_AR:03X}'
+    elif opcode == 1:
         cur_instruction_name = f'ADD {reg_AR:03X}'
     elif opcode == 2:
         cur_instruction_name = f'LDA {reg_AR:03X}'
     elif opcode == 3:
         cur_instruction_name = f'STA {reg_AR:03X}'
-    else:
-        cur_instruction_name = f'memory-reference {reg_AR:03X}'
+    elif opcode == 4:
+        cur_instruction_name = f'BUN {reg_AR:03X}'
+    elif opcode == 5:
+        cur_instruction_name = f'BSA {reg_AR:03X}'
+    elif opcode == 6:
+        cur_instruction_name = f'ISZ {reg_AR:03X}'
+        
     
     return cur_instruction_name
 
@@ -184,18 +191,31 @@ def simulate_cycle():
         elif reg["SC"] == 4:
             # T4
             # execute memory-reference instruction
+            # opcode 0: AND
             # opcode 1: ADD
             # opcode 2: LDA
             # opcode 3: STA
+            # opcode 4: BUN
+            # opcode 5: BSA
+            # opcode 6: ISZ
             print(f'T{reg["SC"]} :')
+            
+            # AND
+            if opcode == 0:
+                print("DR <- M[AR]")
+                reg["DR"] = M[reg["AR"]]&0xFFFF
+                print(f'DR = {reg["DR"]:04X}')
+                print()
+                reg["SC"] = 5
             # ADD
-            if opcode == 1:
+            elif opcode == 1:
                 # 메모리에서 값을 읽어와 Data Register에 저장
                 print("DR <- M[AR]")
                 reg["DR"] = M[reg["AR"]]&0xFFFF
                 print(f'DR = {reg["DR"]:04X}')
                 print()
                 reg["SC"] = 5
+            # LDA
             elif opcode == 2:
                 # 메모리에서 값을 읽어와 Data Register에 저장
                 print("DR <- M[AR]")
@@ -203,6 +223,7 @@ def simulate_cycle():
                 print(f'DR = {reg["DR"]:04X}')
                 print()
                 reg["SC"] = 5
+            # STA
             elif opcode == 3:
                 print("M[AR] <- AC, SC <- 0")
                 M[reg["AR"]] = reg["AC"]&0xFFFF
@@ -210,18 +231,45 @@ def simulate_cycle():
                 print(f'M[{reg["AR"]}] = {M[reg["AR"]]:04X}')
                 print(f'SC = {reg["SC"]}')
                 print()
-            else:
-                print("Unsupported instruction at T4")
+            # BUN
+            elif opcode == 4:   
+                print("PC <- AR, SC <- 0")
+                reg["PC"] = reg["AR"] & 0xFFF
                 reg["SC"] = 0
-                print(f"SC = {reg['SC']}")
+                print(f'PC = {reg["PC"]:03X}')
+                print(f'SC = {reg["SC"]}')
                 print()
+            # BSA
+            elif opcode == 5:
+                print("M[AR] <- PC, AR <- AR + 1")
+                M[reg["AR"]] = reg["PC"] & 0xFFFF
+                reg["AR"] = (reg["AR"] + 1) & 0xFFF
+                print(f'M[{(reg["AR"] - 1) & 0xFFF:03X}] = {M[(reg["AR"] - 1) & 0xFFF]:04X}')
+                print(f'AR = {reg["AR"]:03X}')
+                print()
+                reg["SC"] = 5
+            # ISZ
+            elif opcode == 6:
+                print("DR <- M[AR]")
+                reg["DR"] = M[reg["AR"]]&0xFFFF
+                print(f'DR = {reg["DR"]:04X}')
+                print()
+                reg["SC"] = 5
+                
                 
         
         elif reg["SC"] == 5:
             # T5
             print(f'T{reg["SC"]} : ')
             
-            if opcode == 1:
+            # AND
+            if opcode == 0:
+                print("AC <- AC & DR, SC <- 0")
+                reg["AC"] = reg["AC"] & reg["DR"]
+                reg["SC"] = 0
+                print(f'AC = {reg["AC"]:04X}, SC = {reg["SC"]}')
+            # ADD
+            elif opcode == 1:
                 print("AC <- AC + DR, E <- Cout, SC <- 0")
                 tot = reg["AC"] + reg["DR"]
                 # AC와 DR의 값에서 캐리가 생길 경우 E 레지스터에 저장
@@ -232,16 +280,44 @@ def simulate_cycle():
                 
                 print(f'AC = {reg["AC"]:04X}, E = {reg["E"]}')
                 print(f'SC = {reg["SC"]}')
+            # LDA
             elif opcode == 2:
                 print("AC <- DR, SC <- 0")
                 reg["AC"] = reg["DR"] & 0xFFFF
                 reg["SC"] = 0
                 
                 print(f'AC = {reg["AC"]:04X}, SC = {reg["SC"]}')
-            else:
-                print("Unsupported instruction at T5")
+            # BSA
+            elif opcode == 5:
+                print("PC <- AR, SC <- 0")
+                reg["PC"] = reg["AR"]
                 reg["SC"] = 0
-                print(f"SC = {reg['SC']}\n")
+                print(f'PC = {reg["PC"]:03X}, SC = {reg["SC"]}')
+            # ISZ
+            elif opcode == 6:
+                print("DR <- M[AR]")
+                reg["DR"] = (reg["DR"] + 1) & 0xFFFF
+                print(f'DR = {reg["DR"]:04X}')
+                print()
+                reg["SC"] = 6
+        
+        elif reg["SC"] == 6:
+            # T6
+            print(f'T{reg["SC"]} : ')
+            
+            # ISZ
+            print("M[AR] <- DR, if (DR == 0) then PC <- PC + 1, SC <- 0")
+            M[reg["AR"]] = reg["DR"] & 0xFFFF
+
+            if reg["DR"] == 0:
+                reg["PC"] = (reg["PC"] + 1) & 0xFFF
+            reg["SC"] = 0
+
+            print(f'M[{reg["AR"]:03X}] = {M[reg["AR"]]:04X}')
+            print(f'PC = {reg["PC"]:03X}')
+            print(f'SC = {reg["SC"]}')
+            print()
+                
 
     final_register(reg)
     final_memory(M)
